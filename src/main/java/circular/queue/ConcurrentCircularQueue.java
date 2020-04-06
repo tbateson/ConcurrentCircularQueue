@@ -162,13 +162,23 @@ public class ConcurrentCircularQueue<T> extends AbstractQueue<T> {
 	}
 
 	@Override
-	public boolean isEmpty() {
-		return size() == 0;
+	public int size() {
+		return data.get().size;
 	}
 
 	@Override
-	public int size() {
-		return data.get().size;
+	public boolean remove(final Object e) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public boolean removeAll(final Collection<?> c) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public boolean retainAll(final Collection<?> c) {
+		throw new UnsupportedOperationException();
 	}
 
 	public int capacity() {
