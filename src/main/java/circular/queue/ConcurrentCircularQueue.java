@@ -1,6 +1,7 @@
 package circular.queue;
 
 import java.util.AbstractQueue;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -79,6 +80,51 @@ public class ConcurrentCircularQueue<T> extends AbstractQueue<T> {
 				newData.size = curData.size + 1;
 			}
 		} while (!data.compareAndSet(curData, newData));
+		return true;
+	}
+
+	@Override
+	public boolean addAll(final Collection<? extends T> c) {
+		Objects.requireNonNull(c);
+		if (this == c) {
+			throw new IllegalArgumentException();
+		}
+		if (c.isEmpty()) {
+			return false;
+		}
+		final Iterator<? extends T> iter = c.iterator();
+		Node newHead = new Node(iter.next());
+		Node newTail = newHead;
+		while (iter.hasNext()) {
+			newTail.next = new Node(iter.next());
+			newTail = newTail.next;
+		}
+		for (int i = 0; i < c.size() - capacity; ++i) {
+			newHead = newHead.next;
+		}
+		final int newElementsSize = Math.min(capacity, c.size());
+		final Data newData = new Data();
+		newData.tail = newTail;
+		if (newElementsSize == capacity) {
+			newData.head = newHead;
+			newData.size = capacity;
+			data.set(newData);
+		} else {
+			Data curData;
+			do {
+				curData = data.get();
+				if (curData.size > 0) {
+					curData.tail.next = newHead;
+					newData.head = curData.head;
+					for (int i = 0; i < newElementsSize + curData.size - capacity; ++i) {
+						newData.head = newData.head.next;
+					}
+				} else {
+					newData.head = newHead;
+				}
+				newData.size = Math.min(capacity, newElementsSize + curData.size);
+			} while (!data.compareAndSet(curData, newData));
+		}
 		return true;
 	}
 
