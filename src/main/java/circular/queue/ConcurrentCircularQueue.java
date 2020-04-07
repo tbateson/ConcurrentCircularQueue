@@ -29,21 +29,18 @@ public class ConcurrentCircularQueue<T> extends AbstractQueue<T> {
 		@Override
 		public Iterator<T> iterator() {
 			return new Iterator<>() {
-				Node curNode = head;
-				int index;
+				Node curNode = null;
 				@Override
 				public boolean hasNext() {
-					return index < size;
+					return (curNode == null && head != null) || (curNode != null && curNode.next != null);
 				}
 				@Override
 				public T next() {
 					if (!hasNext()) {
 						throw new NoSuchElementException();
 					}
-					index++;
-					final T item = curNode.item;
-					curNode = curNode.next;
-					return item;
+					curNode = curNode == null ? head : curNode.next;
+					return curNode.item;
 				}
 			};
 		}
@@ -68,18 +65,19 @@ public class ConcurrentCircularQueue<T> extends AbstractQueue<T> {
 			curData = data.get();
 			if (curData.size + 1 > capacity) {
 				newData.head = curData.head.next;
-				curData.tail.next = newNode;
 				newData.size = curData.size;
 			} else {
-				if (curData.size == 0) {
+				if (curData.head == null) {
 					newData.head = newNode;
 				} else {
 					newData.head = curData.head;
-					curData.tail.next = newNode;
 				}
 				newData.size = curData.size + 1;
 			}
 		} while (!data.compareAndSet(curData, newData));
+		if (curData.tail != null) {
+			curData.tail.next = newNode;
+		}
 		return true;
 	}
 
@@ -113,8 +111,7 @@ public class ConcurrentCircularQueue<T> extends AbstractQueue<T> {
 			Data curData;
 			do {
 				curData = data.get();
-				if (curData.size > 0) {
-					curData.tail.next = newHead;
+				if (curData.head != null) {
 					newData.head = curData.head;
 					for (int i = 0; i < newElementsSize + curData.size - capacity; ++i) {
 						newData.head = newData.head.next;
@@ -124,6 +121,9 @@ public class ConcurrentCircularQueue<T> extends AbstractQueue<T> {
 				}
 				newData.size = Math.min(capacity, newElementsSize + curData.size);
 			} while (!data.compareAndSet(curData, newData));
+			if (curData.tail != null) {
+				curData.tail.next = newHead;
+			}
 		}
 		return true;
 	}
@@ -162,8 +162,19 @@ public class ConcurrentCircularQueue<T> extends AbstractQueue<T> {
 	}
 
 	@Override
+	public boolean isEmpty() {
+		return data.get().head == null;
+	}
+
+	@Override
 	public int size() {
-		return data.get().size;
+		final Iterator<T> iter = iterator();
+		int size = 0;
+		while (iter.hasNext()) {
+			++size;
+			iter.next();
+		}
+		return size;
 	}
 
 	@Override
